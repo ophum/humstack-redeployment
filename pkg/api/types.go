@@ -11,8 +11,10 @@ const (
 )
 
 type RedeploymentSpec struct {
-	VMNamePrefix string    `json:"vmNamePrefix" yaml:"vmNamePrefix"`
-	RestartTime  time.Time `json:"restartTime" yaml:"restartTime"`
+	Group       string    `json:"group" yaml:"group"`
+	Namespace   string    `json:"namespace" yaml:"namespace"`
+	VMIDPrefix  string    `json:"vmIDPrefix" yaml:"vmIDPrefix"`
+	RestartTime time.Time `json:"restartTime" yaml:"restartTime"`
 }
 
 type RedeploymentState string
@@ -20,9 +22,12 @@ type RedeploymentState string
 const (
 	RedeploymentStateRequested      RedeploymentState = "Requested"
 	RedeploymentStateStoppingVM     RedeploymentState = "StoppingVM"
+	RedeploymentStateStoppedVM      RedeploymentState = "StoppedVM"
 	RedeploymentStateDeletingBS     RedeploymentState = "DeletingBS"
+	RedeploymentStateDeletedBS      RedeploymentState = "DeletedBS"
 	RedeploymentStatePendingStartVM RedeploymentState = "PendingRestartVM"
 	RedeploymentStateRestartingVM   RedeploymentState = "RestartingVM"
+	RedeploymentStateRestartedVM    RedeploymentState = "RestartedVM"
 	RedeploymentStateDone           RedeploymentState = "Done"
 	RedeploymentStateError          RedeploymentState = "Error"
 )
