@@ -1,0 +1,8 @@
+apiServerAddress: localhost
+apiServerPort: 8090
+
+humstackAPIServerAddress: localhost
+humstackAPIServerPort: 8080
+humstackBlockStorageDirPath: ./blockstorages
+
+bsDeleteParallelLimit: 10
