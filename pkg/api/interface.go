@@ -23,9 +23,12 @@ func NewRedeploymentHandler(router *gin.RouterGroup, rdhi RedeploymentHandlerInt
 }
 
 func (h *RedeploymentHandler) RegisterHandlers() {
-	h.router.GET("", h.rdhi.FindAll)
-	h.router.GET("/:redeployment_id", h.rdhi.Find)
-	h.router.POST("", h.rdhi.Create)
-	h.router.PUT("/:redeployment_id", h.rdhi.Update)
-	h.router.DELETE("/:redeployment_id", h.rdhi.Delete)
+	r := h.router.Group("/redeployments")
+	{
+		r.GET("", h.rdhi.FindAll)
+		r.GET("/:redeployment_id", h.rdhi.Find)
+		r.POST("", h.rdhi.Create)
+		r.PUT("/:redeployment_id", h.rdhi.Update)
+		r.DELETE("/:redeployment_id", h.rdhi.Delete)
+	}
 }

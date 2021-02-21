@@ -33,7 +33,7 @@ type RedeploymentListResponse struct {
 	} `json:"data"`
 }
 
-const basePath = "api/v0"
+const basePath = "api/v0/redeployments"
 
 func NewRedeploymentClient(scheme, apiServerAddress string, apiServerPort int32) *RedeploymentClient {
 	return &RedeploymentClient{
