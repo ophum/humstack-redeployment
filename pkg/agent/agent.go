@@ -1,11 +1,9 @@
 package agent
 
 import (
-	"context"
 	"fmt"
 	"log"
 	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -15,16 +13,14 @@ import (
 	hsClient "github.com/ophum/humstack/pkg/client"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
-	"golang.org/x/sync/semaphore"
 )
 
 type RedeploymentAgent struct {
-	client            *client.RedeploymentClient
-	humstackClient    *hsClient.Clients
-	config            *Config
-	logger            *zap.Logger
-	parallelSemaphore *semaphore.Weighted
-	nodeName          string
+	client         *client.RedeploymentClient
+	humstackClient *hsClient.Clients
+	config         *Config
+	logger         *zap.Logger
+	nodeName       string
 }
 
 func NewRedeploymentAgent(client *client.RedeploymentClient, humstackClient *hsClient.Clients, config *Config, logger *zap.Logger) *RedeploymentAgent {
@@ -33,12 +29,11 @@ func NewRedeploymentAgent(client *client.RedeploymentClient, humstackClient *hsC
 		log.Fatal(err)
 	}
 	return &RedeploymentAgent{
-		client:            client,
-		humstackClient:    humstackClient,
-		config:            config,
-		logger:            logger,
-		parallelSemaphore: semaphore.NewWeighted(config.BSDeleteParallelLimit),
-		nodeName:          nodeName,
+		client:         client,
+		humstackClient: humstackClient,
+		config:         config,
+		logger:         logger,
+		nodeName:       nodeName,
 	}
 }
 
@@ -57,26 +52,6 @@ func (a *RedeploymentAgent) Run() {
 
 			for _, rd := range rdList {
 				// 再展開したいVMがどのノードに展開されているか調べる
-				vmList, err := a.getVirtualMachines(rd.Spec.Group, rd.Spec.Namespace, rd.Spec.VMIDPrefix)
-				if err != nil {
-					a.logger.Error("get filtered vm list", zap.String("msg", err.Error()), zap.Time("time", time.Now()))
-				}
-
-				// VMがない場合 skip
-				if len(vmList) == 0 {
-					continue
-				}
-
-				nodeName, ok := vmList[0].Annotations["virtualmachinev0/node_name"]
-				// annotationにノード名が設定されていない場合skip
-				if !ok {
-					continue
-				}
-
-				// ノード名がこのagentのノード名と一致しない場合skip
-				if nodeName != a.nodeName {
-					continue
-				}
 
 				if err := a.sync(rd); err != nil {
 					a.logger.Error(
@@ -144,10 +119,11 @@ func (a *RedeploymentAgent) sync(rd *api.Redeployment) error {
 		}
 	case api.RedeploymentStateStoppedVM:
 		/**
-		 * 1. StateをDeletingBSにする
-		 * 2. 再展開対象のVMのBSを削除する
-		 * 3. StateをDeletedBSにする
-		 */
+		* 1. StateをDeletingBSにする
+		* 2. 再展開対象のVMのBSを削除する
+			* BSのStateをErrorにすると既存の物が削除される
+		* 3. StateをDeletedBSにする
+		*/
 		rd.Status.State = api.RedeploymentStateDeletingBS
 		if _, err := a.client.Update(rd); err != nil {
 			return errors.Wrap(err, "update state")
@@ -160,18 +136,33 @@ func (a *RedeploymentAgent) sync(rd *api.Redeployment) error {
 
 		for _, vm := range vmList {
 			for _, bsID := range vm.Spec.BlockStorageIDs {
-				a.parallelSemaphore.Acquire(context.TODO(), 1)
-				go func() {
-					defer a.parallelSemaphore.Release(1)
-					path := filepath.Join(a.config.HumstackBlockStorageDirPath, vm.Group, vm.Namespace, bsID)
-					if !fileIsExists(path) {
-						log.Printf("file `%s` is not found.", path)
-						return
-					}
-					if err := os.Remove(path); err != nil {
-						log.Println(err)
-					}
-				}()
+				bs, err := a.humstackClient.SystemV0().BlockStorage().Get(vm.Group, vm.Namespace, bsID)
+				if err != nil {
+					return err
+				}
+
+				// bsのstateをerrorにするとbsAgentが作り直してくれる
+				bs.Status.State = system.BlockStorageStateError
+				if _, err := a.humstackClient.SystemV0().BlockStorage().Update(bs); err != nil {
+					return err
+				}
+			}
+		}
+
+	case api.RedeploymentStateDeletingBS:
+		vmList, err := a.getVirtualMachines(rd.Spec.Group, rd.Spec.Namespace, rd.Spec.VMIDPrefix)
+		if err != nil {
+			return errors.Wrap(err, "get filtered vm list")
+		}
+		for _, vm := range vmList {
+			for _, bsID := range vm.Spec.BlockStorageIDs {
+				bs, err := a.humstackClient.SystemV0().BlockStorage().Get(vm.Group, vm.Namespace, bsID)
+				if err != nil {
+					return err
+				}
+				if bs.Status.State != system.BlockStorageStateActive {
+					return nil
+				}
 			}
 		}
 
