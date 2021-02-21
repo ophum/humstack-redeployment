@@ -4,7 +4,7 @@
 
 以下のようにJSONデータをAPIサーバーにPOSTするとgroup1グループ, test-nsネームスペースにあるtest-から始まるVMの再展開を行う
 ```
-curl -X POST -H "Content-Type: application/json" http://localhost:8090/api/v0 -d @- <<EOF
+curl -X POST -H "Content-Type: application/json" http://localhost:8090/api/v0/redeployments -d @- <<EOF
 {
     "meta": {
         "id": "unique-id"
@@ -12,7 +12,7 @@ curl -X POST -H "Content-Type: application/json" http://localhost:8090/api/v0 -d
     "spec": {
         "group": "group1",
         "namespace": "test-ns",
-        "vmIDPrefix: "test-",
+        "vmIDPrefix": "test-",
         "restartTime": "2020-01-10T12:30:00+09:00"
     }
 }
