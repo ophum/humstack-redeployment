@@ -1,0 +1,22 @@
+version: "3"
+
+services:
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 8090:8090
+    working_dir: /worker
+    command: apiserver --listen-address 0.0.0.0
+    volumes:
+      - ./database:/worker/database
+  agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    working_dir: /worker
+    command: agent --config ./config.yaml
+    volumes:
+      - ./cmd/agent/config.yaml:/worker/config.yaml
+    
